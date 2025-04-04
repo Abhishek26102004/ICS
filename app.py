@@ -13,7 +13,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
+                password BLOB NOT NULL
             )
         ''')
         conn.commit()
@@ -24,7 +24,7 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password'].encode('utf-8')
-        hashed_pw = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
+        hashed_pw = bcrypt.hashpw(password, bcrypt.gensalt())
 
         with sqlite3.connect("users.db") as conn:
             cursor = conn.cursor()
@@ -48,13 +48,16 @@ def login():
             cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
             user = cursor.fetchone()
 
-            if user and bcrypt.checkpw(password, user[0]):
-                session['username'] = username
-                session['original_password'] = request.form['password']
-                session['hashed_password'] = user[0]
-                return redirect(url_for('dashboard'))
-            else:
-                return render_template('login.html', error="Invalid credentials! Please try again.")
+            if user:
+                stored_password = user[0]
+                # Ensure the password is bytes
+                if isinstance(stored_password, str):
+                    stored_password = stored_password.encode('utf-8')
+                
+                if bcrypt.checkpw(password, stored_password):
+                    session['username'] = username
+                    return redirect(url_for('dashboard'))
+            return render_template('login.html', error="Invalid credentials! Please try again.")
     return render_template('login.html')
 
 # Dashboard
@@ -62,30 +65,7 @@ def login():
 def dashboard():
     if 'username' not in session:
         return redirect(url_for('login'))
-
-    return render_template('dashboard.html', 
-                           username=session['username'], 
-                           original_password=session.get('original_password', ''),
-                           hashed_password=session.get('hashed_password', ''))
-
-# Hash Converter
-@app.route('/hash_converter', methods=['POST'])
-def hash_converter():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-
-    text_to_hash = request.form.get('text_to_hash')
-
-    if text_to_hash:
-        hashed_version = bcrypt.hashpw(text_to_hash.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        return render_template('dashboard.html', 
-                               username=session['username'],
-                               original_password=session.get('original_password', ''),
-                               hashed_password=session.get('hashed_password', ''),
-                               converted_text=text_to_hash, 
-                               converted_hash=hashed_version)
-
-    return redirect(url_for('dashboard'))
+    return render_template('dashboard.html', username=session['username'])
 
 # Logout
 @app.route('/logout')
