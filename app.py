@@ -3,7 +3,7 @@ import sqlite3
 import bcrypt
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key"
+app.secret_key = "ac958917212ca91408d178f0798c8a9dd98ed9c58779365d6ac251bd8f46b8ff"
 
 # Database setup
 def init_db():
@@ -13,18 +13,25 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
-                password BLOB NOT NULL
+                password TEXT NOT NULL
             )
         ''')
         conn.commit()
 
+# Redirect root URL to login
+@app.route('/')
+def home():
+    return redirect(url_for('login'))
+
 # Register User
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    error = None  # Initialize error message
+
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password'].encode('utf-8')
-        hashed_pw = bcrypt.hashpw(password, bcrypt.gensalt())
+        hashed_pw = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
 
         with sqlite3.connect("users.db") as conn:
             cursor = conn.cursor()
@@ -33,8 +40,10 @@ def register():
                 conn.commit()
                 return redirect(url_for('login'))
             except sqlite3.IntegrityError:
-                return "User already exists!"
-    return render_template('register.html')
+                error = "User already exists!"
+
+    return render_template('register.html', error=error)
+
 
 # Login User
 @app.route('/login', methods=['GET', 'POST'])
@@ -49,13 +58,11 @@ def login():
             user = cursor.fetchone()
 
             if user:
-                stored_password = user[0]
-                # Ensure the password is bytes
-                if isinstance(stored_password, str):
-                    stored_password = stored_password.encode('utf-8')
-                
+                stored_password = user[0].encode('utf-8') if isinstance(user[0], str) else user[0]
                 if bcrypt.checkpw(password, stored_password):
                     session['username'] = username
+                    session['original_password'] = request.form['password']  # Store the original password
+                    session['hashed_password'] = stored_password.decode('utf-8')
                     return redirect(url_for('dashboard'))
             return render_template('login.html', error="Invalid credentials! Please try again.")
     return render_template('login.html')
@@ -65,15 +72,37 @@ def login():
 def dashboard():
     if 'username' not in session:
         return redirect(url_for('login'))
-    return render_template('dashboard.html', username=session['username'])
+
+    return render_template('dashboard.html',
+                           username=session['username'],
+                           original_password=session.get('original_password', ''),
+                           hashed_password=session.get('hashed_password', ''))
+
+# Hash Converter
+@app.route('/hash_converter', methods=['POST'])
+def hash_converter():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    text_to_hash = request.form.get('text_to_hash')
+
+    if text_to_hash:
+        hashed_version = bcrypt.hashpw(text_to_hash.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        return render_template('dashboard.html',
+                               username=session['username'],
+                               original_password=session.get('original_password', ''),
+                               hashed_password=session.get('hashed_password', ''),
+                               converted_text=text_to_hash,
+                               converted_hash=hashed_version)
+
+    return redirect(url_for('dashboard'))
 
 # Logout
 @app.route('/logout')
 def logout():
     session.pop('username', None)
-    return redirect(url_for('login'))
+    return render_template('logout.html')
 
 if __name__ == '__main__':
     init_db()
     app.run(debug=True)
-
