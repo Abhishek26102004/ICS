@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+    <h2>Welcome, {{ username }}!</h2>
+    <p>Your original password: {{ original_password }}</p>
+    <p>Your hashed password: {{ hashed_password }}</p>
+
+    <h3>Hash Converter</h3>
+    <form action="/hash_converter" method="POST">
+        Enter Password to Hash: <input type="text" name="text_to_hash">
+        <button type="submit">Convert</button>
+    </form>
+
+    {% if converted_text and converted_hash %}
+        <p>Converted Password: {{ converted_text }}</p>
+        <p>Hashed Version: {{ converted_hash }}</p>
+    {% endif %}
+
+    <br><a href="/logout">Logout</a>
+</body>
+</html>
