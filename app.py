@@ -18,10 +18,10 @@ def init_db():
         ''')
         conn.commit()
 
-# Redirect root URL to login
+# Redirect root URL to dashboard
 @app.route('/')
 def home():
-    return redirect(url_for('login'))
+    return redirect(url_for('dashboard'))
 
 # Register User
 @app.route('/register', methods=['GET', 'POST'])
