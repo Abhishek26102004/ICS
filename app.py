@@ -1,6 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 import bcrypt
+import webbrowser
+import threading
+import os
 
 app = Flask(__name__)
 app.secret_key = "ac958917212ca91408d178f0798c8a9dd98ed9c58779365d6ac251bd8f46b8ff"
@@ -103,6 +106,11 @@ def logout():
     session.pop('username', None)
     return render_template('logout.html')
 
+def open_browser():
+    webbrowser.open_new('http://127.0.0.1:5000')
+
 if __name__ == '__main__':
     init_db()
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        threading.Timer(1.5, open_browser).start()
     app.run(debug=True)
