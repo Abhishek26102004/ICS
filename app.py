@@ -21,10 +21,10 @@ def init_db():
         ''')
         conn.commit()
 
-# Redirect root URL to dashboard
+# Redirect root URL to dashboardC
 @app.route('/')
 def home():
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('dashboardC'))
 
 # Register User
 @app.route('/register', methods=['GET', 'POST'])
@@ -66,17 +66,27 @@ def login():
                     session['username'] = username
                     session['original_password'] = request.form['password']  # Store the original password
                     session['hashed_password'] = stored_password.decode('utf-8')
-                    return redirect(url_for('dashboard'))
+                    return redirect(url_for('dashboardC'))
             return render_template('login.html', error="Invalid credentials! Please try again.")
     return render_template('login.html')
 
-# Dashboard
-@app.route('/dashboard', methods=['GET', 'POST'])
-def dashboard():
+# DashboardC
+@app.route('/dashboardC', methods=['GET', 'POST'])
+def dashboardC():
     if 'username' not in session:
         return redirect(url_for('login'))
 
-    return render_template('dashboard.html',
+    return render_template('dashboardC.html',
+                           username=session['username'],
+                           original_password=session.get('original_password', ''),
+                           hashed_password=session.get('hashed_password', ''))
+
+@app.route('/dashboardV', methods=['GET', 'POST'])
+def dashboardV():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    return render_template('dashboardV.html',
                            username=session['username'],
                            original_password=session.get('original_password', ''),
                            hashed_password=session.get('hashed_password', ''))
@@ -91,14 +101,40 @@ def hash_converter():
 
     if text_to_hash:
         hashed_version = bcrypt.hashpw(text_to_hash.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        return render_template('dashboard.html',
+        return render_template('dashboardC.html',
                                username=session['username'],
                                original_password=session.get('original_password', ''),
                                hashed_password=session.get('hashed_password', ''),
                                converted_text=text_to_hash,
                                converted_hash=hashed_version)
 
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('dashboardC'))
+
+@app.route('/hash_verifier', methods=['POST'])
+def hash_verifier():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    v_password = request.form.get('v_password')
+    v_hash = request.form.get('v_hash')
+
+    if v_password and v_hash:
+        try:
+            check = bcrypt.checkpw(v_password.encode('utf-8'), v_hash.encode('utf-8'))
+        except ValueError:
+            check = False
+        if check:
+            v_message = "Password and hash are a match!"
+        else:
+            v_message = "Password and hash are not a match!"
+        return render_template('dashboardV.html',
+                               username=session['username'],
+                               original_password=session.get('original_password', ''),
+                               hashed_password=session.get('hashed_password', ''),
+                               verified_message=v_message,
+                               match=check)
+
+    return redirect(url_for('dashboardV'))
 
 # Logout
 @app.route('/logout')
